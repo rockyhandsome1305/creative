@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>My App</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            background: #000; 
+            color: #0f0; 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            padding: 20px; 
+            min-height: 100vh;
+        }
+        .container { text-align: center; }
+        h1 { font-size: 20px; margin-bottom: 20px; }
+        .status { 
+            background: #111; 
+            padding: 15px; 
+            border-radius: 10px; 
+            font-size: 14px;
+            word-break: break-all;
+        }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .loading { color: #ff0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 App Connected</h1>
+        <div class="status" id="status">
+            <span class="loading">⏳ Connecting to server...</span>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'https://came-maine-succeed-infants.trycloudflare.com';
+        
+        const statusDiv = document.getElementById('status');
+
+        async function connectToServer() {
+            try {
+                statusDiv.innerHTML = '<span class="loading">⏳ Connecting...</span>';
+                
+                const response = await fetch(SERVER_URL, {
+                    headers: { 
+                        'ngrok-skip-browser-warning': 'true',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                const text = await response.text();
+                statusDiv.innerHTML = '<span class="success">✅ Connected!</span><br><br>' + text.substring(0, 1000);
+                
+                setTimeout(connectToServer, 30000);
+                
+            } catch (error) {
+                statusDiv.innerHTML = '<span class="error">❌ Error: ' + error.message + '</span>';
+                setTimeout(connectToServer, 10000);
+            }
+        }
+
+        connectToServer();
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('✅ SW Registered'))
+                .catch(err => console.log('❌ SW Error:', err));
+        }
+    </script>
+</body>
+</html>
