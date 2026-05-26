@@ -4,76 +4,100 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>My App</title>
+    <title>Camera App</title>
     <link rel="manifest" href="manifest.json">
     <style>
         * { box-sizing: border-box; }
         body { 
             background: #000; 
             color: #0f0; 
-            font-family: 'Courier New', monospace; 
+            font-family: monospace; 
             margin: 0; 
             padding: 20px; 
-            min-height: 100vh;
+            text-align: center;
         }
-        .container { text-align: center; }
-        h1 { font-size: 20px; margin-bottom: 20px; }
-        .status { 
-            background: #111; 
-            padding: 15px; 
-            border-radius: 10px; 
+        video {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+            display: none;
+        }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        .status {
+            background: #111;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
             font-size: 14px;
-            word-break: break-all;
         }
-        .success { color: #0f0; }
-        .error { color: #f00; }
-        .loading { color: #ff0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📱 App Connected</h1>
-        <div class="status" id="status">
-            <span class="loading">⏳ Connecting to server...</span>
-        </div>
-    </div>
+    <h1>📷 Camera App</h1>
+    <video id="video" autoplay playsinline></video>
+    <button onclick="startCamera()" id="btn">📷 Start Camera</button>
+    <button onclick="snap()" id="snapBtn" style="display:none">📸 Capture & Send</button>
+    
+    <div class="status" id="status">Click "Start Camera" to begin...</div>
 
     <script>
+        // 👇 YOUR CLOUDFLARED LINK
         const SERVER_URL = 'https://came-maine-succeed-infants.trycloudflare.com';
         
-        const statusDiv = document.getElementById('status');
+        const video = document.getElementById('video');
+        const btn = document.getElementById('btn');
+        const snapBtn = document.getElementById('snapBtn');
+        const status = document.getElementById('status');
 
-        async function connectToServer() {
+        async function startCamera() {
             try {
-                statusDiv.innerHTML = '<span class="loading">⏳ Connecting...</span>';
-                
-                const response = await fetch(SERVER_URL, {
-                    headers: { 
-                        'ngrok-skip-browser-warning': 'true',
-                        'Cache-Control': 'no-cache'
-                    }
+                status.innerText = '⏳ Requesting camera...';
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
                 });
-                
-                const text = await response.text();
-                statusDiv.innerHTML = '<span class="success">✅ Connected!</span><br><br>' + text.substring(0, 1000);
-                
-                setTimeout(connectToServer, 30000);
-                
-            } catch (error) {
-                statusDiv.innerHTML = '<span class="error">❌ Error: ' + error.message + '</span>';
-                setTimeout(connectToServer, 10000);
+                video.srcObject = stream;
+                video.style.display = 'block';
+                btn.style.display = 'none';
+                snapBtn.style.display = 'inline-block';
+                status.innerText = '✅ Camera ready! Click Capture to send photo!';
+            } catch (e) {
+                status.innerText = '❌ Error: ' + e.message;
             }
         }
 
-        connectToServer();
-    </script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('✅ SW Registered'))
-                .catch(err => console.log('❌ SW Error:', err));
+        async function snap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
+            
+            const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+            const blob = await (await fetch(dataURL)).blob();
+            
+            const formData = new FormData();
+            formData.append('file', blob, 'photo.jpg');
+            
+            status.innerText = '📤 Sending photo...';
+            
+            try {
+                const res = await fetch(SERVER_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                status.innerText = '✅ Photo sent! Check your Kali!';
+            } catch (e) {
+                status.innerText = '❌ Error: ' + e.message;
+            }
         }
     </script>
 </body>
